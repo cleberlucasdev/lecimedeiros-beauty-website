@@ -3,8 +3,7 @@
 Institutional website developed for a beauty studio.
 
 Tech Stack:
-— TypeScript
-— HTML
+TypeScript and HTML.
 
 Live Demo: https://lecimedeirosbeauty.netlify.app/
 
