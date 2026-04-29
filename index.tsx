@@ -633,7 +633,7 @@ function AdminLogin({ onLogin, onBack }: any) {
       <div className="w-24 h-24 bg-indigo-950 text-white rounded-[2rem] flex items-center justify-center mb-8 shadow-2xl rotate-6"><User size={48} /></div>
       <h2 className="text-4xl font-serif font-black text-indigo-950 mb-12">Painel da Leci</h2>
       <Card className="w-full">
-        <form onSubmit={e => { e.preventDefault(); if (pass.toLowerCase() === 'admin') onLogin(); else setErr(true); }} className="space-y-6">
+        <form onSubmit={e => { e.preventDefault(); if (pass.toLowerCase() === import.meta.env.VITE_ADMIN_PASSWORD?.toLowerCase()) onLogin(); else setErr(true); }} className="space-y-6">
           <input type="password" autoFocus className="w-full p-6 bg-slate-50 rounded-2xl outline-none text-2xl font-bold" value={pass} onChange={e => { setPass(e.target.value); setErr(false); }} placeholder="Senha" />
           {err && <p className="text-rose-500 font-bold">Senha incorreta</p>}
           <Button type="submit" className="w-full">Entrar</Button>
