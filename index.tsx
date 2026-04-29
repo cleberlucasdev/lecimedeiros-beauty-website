@@ -1,6 +1,28 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createClient } from '@supabase/supabase-js';
+
+// --- Supabase ---
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string
+);
+
+const mapRow = (r: any): Appointment => ({
+  id: r.id,
+  serviceId: r.service_id,
+  serviceName: r.service_name,
+  subOptionName: r.sub_option_name ?? undefined,
+  hairLength: r.hair_length ?? undefined,
+  date: r.date,
+  time: r.time,
+  durationMinutes: r.duration_minutes,
+  clientName: r.client_name,
+  clientPhone: r.client_phone,
+  status: r.status,
+  createdAt: r.created_at,
+});
 import { 
   Calendar, 
   Clock, 
@@ -232,13 +254,15 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('leci_v1_appointments');
-    if (saved) setAppointments(JSON.parse(saved));
+    supabase
+      .from('agendamentos')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) { console.error('Supabase fetch error:', error); return; }
+        setAppointments((data ?? []).map(mapRow));
+      });
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('leci_v1_appointments', JSON.stringify(appointments));
-  }, [appointments]);
 
   const navigate = (to: string) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -254,7 +278,18 @@ export default function App() {
         {page === '/admin' && isAdmin && (
           <AdminPanel 
             appointments={appointments} 
-            onUpdate={(updated: Appointment) => setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a))}
+            onUpdate={async (updated: Appointment) => {
+              const { error } = await supabase
+                .from('agendamentos')
+                .update({
+                  status: updated.status,
+                  date: updated.date,
+                  time: updated.time,
+                })
+                .eq('id', updated.id);
+              if (error) { console.error('Supabase update error:', error); return; }
+              setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a));
+            }}
             onLogout={() => { setIsAdmin(false); navigate('/'); }}
           />
         )}
@@ -397,7 +432,7 @@ function BookingPage({ navigate, onComplete, appointments }: any) {
     return { available: true };
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     const app: Appointment = {
       id: Math.random().toString(36).substr(2, 9),
       serviceId: selection.category!.id,
@@ -412,6 +447,27 @@ function BookingPage({ navigate, onComplete, appointments }: any) {
       status: 'pending',
       createdAt: Date.now()
     };
+
+    const { error } = await supabase.from('agendamentos').insert({
+      id: app.id,
+      service_id: app.serviceId,
+      service_name: app.serviceName,
+      sub_option_name: app.subOptionName ?? null,
+      hair_length: app.hairLength ?? null,
+      date: app.date,
+      time: app.time,
+      duration_minutes: app.durationMinutes,
+      client_name: app.clientName,
+      client_phone: app.clientPhone,
+      status: app.status,
+      created_at: app.createdAt,
+    });
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      // Ainda mostra confirmação pro cliente — não bloqueia o fluxo
+    }
+
     onComplete(app);
     setConfirmed(true);
   };
