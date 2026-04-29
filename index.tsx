@@ -693,6 +693,8 @@ function AdminPanel({ appointments, onUpdate, onLogout }: any) {
           <div className="space-y-1 md:text-left text-center">
             <div className="flex items-center gap-3 justify-center md:justify-start flex-wrap">
               <h3 className="text-3xl font-serif font-black text-indigo-950">{a.clientName}</h3>
+              {a.status === 'pending' && <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-bold rounded-full">Pendente</span>}
+              {a.status === 'confirmed' && <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm font-bold rounded-full">Confirmado</span>}
               {a.status === 'cancelled' && <span className="px-3 py-1 bg-rose-100 text-rose-700 text-sm font-bold rounded-full">Cancelado</span>}
             </div>
             <p className="text-xl text-rose-500 font-bold">{a.serviceName}</p>
