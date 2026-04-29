@@ -691,7 +691,10 @@ function AdminPanel({ appointments, onUpdate, onLogout }: any) {
             <div className="text-sm font-bold text-slate-400">{formatDisplayDate(a.date)}</div>
           </div>
           <div className="space-y-1 md:text-left text-center">
-            <h3 className="text-3xl font-serif font-black text-indigo-950">{a.clientName}</h3>
+            <div className="flex items-center gap-3 justify-center md:justify-start flex-wrap">
+              <h3 className="text-3xl font-serif font-black text-indigo-950">{a.clientName}</h3>
+              {a.status === 'cancelled' && <span className="px-3 py-1 bg-rose-100 text-rose-700 text-sm font-bold rounded-full">Cancelado</span>}
+            </div>
             <p className="text-xl text-rose-500 font-bold">{a.serviceName}</p>
             <p className="text-lg text-slate-400 flex items-center justify-center md:justify-start gap-2"><Phone size={16} /> {a.clientPhone}</p>
           </div>
