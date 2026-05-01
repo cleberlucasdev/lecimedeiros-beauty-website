@@ -23,6 +23,28 @@ const mapRow = (r: any): Appointment => ({
   status: r.status,
   createdAt: r.created_at,
 });
+
+const LOCAL_CANCELED_KEY = 'leci-canceled-appointments';
+
+const loadLocalCanceledAppointments = (): Record<string, Appointment> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_CANCELED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveLocalCanceledAppointments = (cache: Record<string, Appointment>) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LOCAL_CANCELED_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore localStorage write failures
+  }
+};
+
 import { 
   Calendar, 
   Clock, 
@@ -85,6 +107,7 @@ interface Appointment {
   clientPhone: string;
   status: 'pending' | 'confirmed' | 'cancelled';
   createdAt: number;
+  deletedFromDb?: boolean;
 }
 
 // --- Configurações e Dados Estáticos ---
@@ -251,22 +274,93 @@ const Card = ({ children, className = "", noPadding = false }: any) => (
 export default function App() {
   const [page, setPage] = useState<string>('/');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [localDeleted, setLocalDeleted] = useState<Record<string, Appointment>>({});
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    const cache = loadLocalCanceledAppointments();
+    setLocalDeleted(cache);
+
     supabase
       .from('agendamentos')
       .select('*')
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (error) { console.error('Supabase fetch error:', error); return; }
-        setAppointments((data ?? []).map(mapRow));
+        const fetched = (data ?? []).map(mapRow);
+        const merged = [...fetched];
+        Object.values(cache).forEach(cached => {
+          if (!merged.some(app => app.id === cached.id)) {
+            merged.push({ ...cached, deletedFromDb: true });
+          }
+        });
+        setAppointments(merged);
       });
   }, []);
+
+  useEffect(() => {
+    saveLocalCanceledAppointments(localDeleted);
+  }, [localDeleted]);
 
   const navigate = (to: string) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setPage(to);
+  };
+
+  const storeDeletedAppointment = (appointment: Appointment) => {
+    setLocalDeleted(prev => ({ ...prev, [appointment.id]: { ...appointment, status: 'cancelled', deletedFromDb: true } }));
+  };
+
+  const removeDeletedAppointment = (id: string) => {
+    setLocalDeleted(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const handleUpdate = async (updated: Appointment) => {
+    if (updated.deletedFromDb) {
+      const { error } = await supabase.from('agendamentos').insert({
+        id: updated.id,
+        service_id: updated.serviceId,
+        service_name: updated.serviceName,
+        sub_option_name: updated.subOptionName ?? null,
+        hair_length: updated.hairLength ?? null,
+        date: updated.date,
+        time: updated.time,
+        duration_minutes: updated.durationMinutes,
+        client_name: updated.clientName,
+        client_phone: updated.clientPhone,
+        status: updated.status,
+        created_at: updated.createdAt,
+      });
+
+      if (error) { console.error('Supabase insert error:', error); return; }
+      removeDeletedAppointment(updated.id);
+      setAppointments(prev => prev.map(a => a.id === updated.id ? { ...updated, deletedFromDb: false } : a));
+      return;
+    }
+
+    const { error } = await supabase
+      .from('agendamentos')
+      .update({
+        status: updated.status,
+        date: updated.date,
+        time: updated.time,
+      })
+      .eq('id', updated.id);
+
+    if (error) { console.error('Supabase update error:', error); return; }
+    setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a));
+  };
+
+  const handleDeleteFromDb = async (appointment: Appointment) => {
+    const { error } = await supabase.from('agendamentos').delete().eq('id', appointment.id);
+    if (error) { console.error('Supabase delete error:', error); return; }
+
+    storeDeletedAppointment({ ...appointment, status: 'cancelled' });
+    setAppointments(prev => prev.map(a => a.id === appointment.id ? { ...a, status: 'cancelled', deletedFromDb: true } : a));
   };
 
   return (
@@ -278,18 +372,8 @@ export default function App() {
         {page === '/admin' && isAdmin && (
           <AdminPanel 
             appointments={appointments} 
-            onUpdate={async (updated: Appointment) => {
-              const { error } = await supabase
-                .from('agendamentos')
-                .update({
-                  status: updated.status,
-                  date: updated.date,
-                  time: updated.time,
-                })
-                .eq('id', updated.id);
-              if (error) { console.error('Supabase update error:', error); return; }
-              setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a));
-            }}
+            onUpdate={handleUpdate}
+            onDeleteFromDb={handleDeleteFromDb}
             onLogout={() => { setIsAdmin(false); navigate('/'); }}
           />
         )}
@@ -644,7 +728,7 @@ function AdminLogin({ onLogin, onBack }: any) {
   );
 }
 
-function AdminPanel({ appointments, onUpdate, onLogout }: any) {
+function AdminPanel({ appointments, onUpdate, onDeleteFromDb, onLogout }: any) {
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [now, setNow] = useState(new Date());
 
@@ -696,6 +780,7 @@ function AdminPanel({ appointments, onUpdate, onLogout }: any) {
               {a.status === 'pending' && <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-bold rounded-full">Pendente</span>}
               {a.status === 'confirmed' && <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm font-bold rounded-full">Confirmado</span>}
               {a.status === 'cancelled' && <span className="px-3 py-1 bg-rose-100 text-rose-700 text-sm font-bold rounded-full">Cancelado</span>}
+              {a.deletedFromDb && <span className="px-3 py-1 bg-slate-100 text-slate-700 text-sm font-bold rounded-full">Local</span>}
             </div>
             <p className="text-xl text-rose-500 font-bold">{a.serviceName}</p>
             <p className="text-lg text-slate-400 flex items-center justify-center md:justify-start gap-2"><Phone size={16} /> {a.clientPhone}</p>
@@ -706,6 +791,8 @@ function AdminPanel({ appointments, onUpdate, onLogout }: any) {
           <button onClick={() => setEditing(a)} className="p-4 bg-indigo-50 text-indigo-950 rounded-2xl hover:bg-indigo-950 hover:text-white transition-all"><Edit2 size={24} /></button>
           <button onClick={() => sendReminder(a)} className="p-4 bg-amber-50 text-amber-600 rounded-2xl hover:bg-amber-600 hover:text-white transition-all" title="Lembrar Cliente"><Bell size={24} /></button>
           {a.status !== 'cancelled' && <button onClick={() => onUpdate({...a, status: 'cancelled'})} className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><X size={24} /></button>}
+          {a.status === 'cancelled' && <button onClick={() => onUpdate({...a, status: 'pending'})} className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all" title="Reativar"><Check size={24} /></button>}
+          {a.status === 'cancelled' && !a.deletedFromDb && <button onClick={() => onDeleteFromDb(a)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all" title="Excluir do banco de dados"><X size={24} /></button>}
         </div>
       </Card>
     );
