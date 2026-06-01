@@ -15,7 +15,7 @@ Aplicação web de duas pontas para um salão de beleza com uma única profissio
 - **Fluxo do cliente:** navega entre 15 categorias de serviço (com sub-opções e variantes por comprimento de cabelo), escolhe uma data dentro de uma janela de 14 dias, escolhe um horário que respeita expediente + almoço + duração do serviço + agendamentos existentes, informa nome e telefone. Confirmação via deeplink para o WhatsApp do salão.
 - **Painel admin:** a proprietária acessa pelo celular e vê o dia agrupado em *Hoje / Amanhã / Outros dias*, com ações de um toque para confirmar, cancelar, reagendar, enviar lembrete via WhatsApp ou restaurar agendamento cancelado. Slots de hoje dentro de ±15/+60 minutos ganham um anel visual de "começa em breve".
 
-É um produto real. Minha mãe gere o salão dela neste sistema.
+É um produto real.
 
 ## Stack
 
@@ -73,8 +73,6 @@ create table agendamentos (
 
 ## Limitações conhecidas e próximos passos
 
-Estou sendo explícito sobre isso porque fingir que não existem é pior do que reconhecer.
-
 | # | Problema | Por que importa | Correção |
 |---|---|---|---|
 | 1 | **Race condition no insert de agendamento.** Validação de slot roda no client. Dois clientes simultâneos podem ambos passar na validação e ambos inserir. | Risco real em produção. Em um salão de uma cadeira, double-booking é desastre. | `UNIQUE` index parcial em `(date, time)` onde `status != 'cancelled'`, ou stored procedure com `SELECT ... FOR UPDATE`. |
@@ -118,7 +116,7 @@ A two-sided web app for a single-operator beauty salon:
 - **Customer flow:** browse 15 service categories (with sub-options and length variants), pick a date inside a 14-day window, pick a slot that respects business hours + lunch break + service duration + existing bookings, submit name and phone. Confirmation deeplinks to the salon's WhatsApp.
 - **Admin panel:** the owner logs in on her phone and gets the day grouped into *Today / Tomorrow / Other days*, with one-tap actions to confirm, cancel, reschedule, send a WhatsApp reminder, or restore a cancelled booking. Today's slots within ±15/+60 minutes get a visual "starts soon" ring.
 
-It is a real product. My mother runs her salon on it.
+It is a real product.
 
 ## Stack
 
@@ -187,8 +185,6 @@ create table agendamentos (
 ```
 
 ## Known limitations & next steps
-
-I'm being explicit about these because pretending they don't exist is worse than acknowledging them.
 
 | # | Issue | Why it matters | Fix |
 |---|---|---|---|
