@@ -2,7 +2,7 @@
 
 > SPA de agendamento em produção para um salão de beleza real em Ipatinga (MG), rodando diariamente no celular da proprietária. React 19 + TypeScript + Supabase, deploy na Vercel.
 
-**Demo:** [lecimedeiros-beauty-website.vercel.app](https://lecimedeiros-beauty-website.vercel.app/)
+**Demo:** [lecimedeiros-agendamentos.vercel.app](https://lecimedeiros-agendamentos.vercel.app)
 
 [🇺🇸 English version below](#-english-version)
 
